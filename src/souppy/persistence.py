@@ -23,7 +23,7 @@ from .core.common import get_timestamp
 
 
 def _migrations_dir() -> Path:
-    return Path(__file__).parent.parent.parent / "migrations"
+    return Path(__file__).parent / "migrations"
 
 
 def _split_sql(sql: str) -> list[str]:

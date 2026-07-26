@@ -115,8 +115,8 @@ pip install souppy
 Or from source:
 
 ```bash
-git clone https://github.com/soup-oss/soup.git
-cd soup/soup-oss/souppy
+git clone https://github.com/soup-oss/souppy.git
+cd souppy
 pip install -e .
 ```
 
@@ -272,6 +272,6 @@ This project is licensed under the Mozilla Public License 2.0 — see [LICENSE](
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/soup-oss/soup/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/soup-oss/soup/discussions)
+- **Issues**: [GitHub Issues](https://github.com/soup-oss/souppy/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/soup-oss/souppy/discussions)
 - **Website**: [heysoup.co](https://heysoup.co)

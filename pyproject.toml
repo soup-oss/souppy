@@ -22,6 +22,11 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.urls]
+Homepage = "https://heysoup.co"
+Source = "https://github.com/soup-oss/souppy"
+Issues = "https://github.com/soup-oss/souppy/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
