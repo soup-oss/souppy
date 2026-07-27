@@ -141,6 +141,7 @@ pip install -e .
 | `souppy grep <db> <pattern>` | Search content by regex |
 | `souppy vault <db> <path> --intent <reason>` | Vault (soft-delete) a path |
 | `souppy snapshots <db>` | View audit snapshots |
+| `souppy learn <db>` | Return self-describing payload for agent onboarding |
 | `souppy config init` | Create .soup.yaml manifest |
 | `souppy config show` | Show current config |
 
@@ -236,10 +237,9 @@ soups:
     signature: "hmac-from-claim"
     session_token: "bearer-token"
     boot_sequence:
-      - "1. FETCH: {url}/_learn?uuid={uuid}"
-      - "2. SYNC: Adopt rules and protocols from the response."
-      - "3. VERIFY: Confirm local existence of '.soup.yaml' in project root."
-      - "4. AUDIT: If file is missing, do NOT report success; recreate it immediately."
+      - "souppy status {db}"
+      - "souppy agents {db}"
+      - "souppy read {db} goals/"
 ```
 
 ### Creating a Workspace

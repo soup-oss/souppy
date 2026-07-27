@@ -57,7 +57,6 @@ def test_learn_includes_concepts():
     concepts = payload["concepts"]
     assert "pulse" in concepts
     assert "journal" in concepts
-    assert "checksum" in concepts
     assert "vault" in concepts
     assert "intent" in concepts
 
@@ -95,4 +94,25 @@ def test_learn_includes_reference():
     mem = empty_memory()
     payload = get_learn_payload(mem, "test-uuid")
     assert "reference" in payload
-    assert "heysoup.co" in payload["reference"]
+    assert "url" in payload["reference"]
+    assert "heysoup.co" in payload["reference"]["url"]
+    assert "description" in payload["reference"]
+
+
+def test_learn_includes_next_steps():
+    mem = empty_memory()
+    payload = get_learn_payload(mem, "test-uuid")
+    assert "next_steps" in payload
+    assert len(payload["next_steps"]) >= 3
+    assert any("claim" in step.lower() for step in payload["next_steps"])
+
+
+def test_learn_includes_paradigm():
+    mem = empty_memory()
+    payload = get_learn_payload(mem, "test-uuid")
+    assert "paradigm" in payload
+    assert "mental_models" in payload["paradigm"]
+    models = payload["paradigm"]["mental_models"]
+    assert "dual_anchors" in models
+    assert "pulse_loop" in models
+    assert "presence_latch" in models

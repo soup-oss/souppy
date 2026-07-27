@@ -19,6 +19,9 @@ def get_learn_payload(
 
     This is the local equivalent of heysoup.co's /_learn endpoint.
     Any agent that reads this payload knows everything it needs to operate.
+
+    For the full protocol specification, mental models, and paradigm,
+    visit https://heysoup.co/knowledge
     """
     agents = [
         {"name": name, "claimed": entry.claimed, "profile": _profile(entry)}
@@ -32,10 +35,30 @@ def get_learn_payload(
         "description": (
             "SOUP (Soup Organizes Unified Purpose) is a shared context graph "
             "for AI agents. It gives agents a persistent workspace, intentional "
-            "mutations, and a tamper-evident audit trail."
+            "mutations, and a tamper-evident audit trail. This is souppy — "
+            "the local-first implementation. A single SQLite file and a CLI."
         ),
-        "reference": "https://heysoup.co/knowledge",
+        "reference": {
+            "url": "https://heysoup.co/knowledge",
+            "description": (
+                "The full protocol specification and mental models. "
+                "Covers: The Agent's Map, Dual Anchors (Local vs Soup), "
+                "Intent & Transparency, Safety Guardrails, and the Pulse Loop. "
+                "Read this to understand the 'why' behind the primitives below."
+            ),
+        },
         "install": "pip install souppy",
+        "relationship": {
+            "souppy": "Local-first Python library. SQLite + CLI. No server. Free.",
+            "heysoup": "Managed service. Sync, encryption, attestation, dashboard.",
+            "protocol": "Both implement the same SOUP protocol. Data is portable between them.",
+        },
+        "next_steps": [
+            "1. Claim your identity: souppy claim {db} --name <your-name> --role <your-role>",
+            "2. Read the workspace state: souppy read {db} goals/",
+            "3. Check who else is working: souppy agents {db}",
+            "4. Write with intent: souppy write {db} goals/mvp \"Ship v1\" --intent \"Setting initial scope\"",
+        ],
         "workspace": {
             "db": db_path,
             "pulse": memory._ui.mutation_id,
@@ -93,6 +116,7 @@ def get_learn_payload(
             },
         },
         "commands": {
+            "claim": "souppy claim {db} --name <name> --role <role>",
             "read": "souppy read {db} <path>",
             "write": "souppy write {db} <path> <value> --intent <reason>",
             "delete": "souppy delete {db} <path> --intent <reason>",
@@ -101,9 +125,11 @@ def get_learn_payload(
             "glob": "souppy glob {db} <pattern>",
             "grep": "souppy grep {db} <pattern>",
             "vault": "souppy vault {db} <path> --intent <reason>",
+            "snapshots": "souppy snapshots {db} [--path <path>]",
             "agents": "souppy agents {db}",
             "status": "souppy status {db}",
             "boot": "souppy boot",
+            "learn": "souppy learn {db}",
         },
         "authority": {
             "description": (
@@ -139,20 +165,6 @@ def get_learn_payload(
                     "The journal is the security boundary."
                 ),
             },
-            "checksum": {
-                "description": (
-                    "SHA-256 of the canonical JSON representation of a value. "
-                    "Used for optimistic concurrency: a write can include a checksum "
-                    "to ensure it matches the current state."
-                ),
-            },
-            "canonical_json": {
-                "description": (
-                    "Deterministic JSON serialization with sorted keys. "
-                    "Ensures identical data always produces the same string, "
-                    "which is required for reproducible checksums."
-                ),
-            },
             "vault": {
                 "description": (
                     "Soft-delete that hides paths from agents while keeping them "
@@ -168,9 +180,37 @@ def get_learn_payload(
                 ),
             },
         },
+        "paradigm": {
+            "description": (
+                "SOUP is built on the Guarded Cognitive Graph paradigm. "
+                "Agents are stateless and swappable — a fresh session reads the "
+                "last few mutations and has full situational awareness."
+            ),
+            "mental_models": {
+                "dual_anchors": {
+                    "description": (
+                        "Local Anchor (your hard drive, source files, Git) vs "
+                        "Soup Anchor (shared coordination layer, intent, plans, sync signals). "
+                        "Agents must not confuse the two."
+                    ),
+                },
+                "pulse_loop": {
+                    "description": (
+                        "For long-running tasks, agents should operate in pulses: "
+                        "wake, sync (read .soup.yaml and boot), work, exit. "
+                        "Each pulse starts with zero context decay."
+                    ),
+                },
+                "presence_latch": {
+                    "description": (
+                        "By default, agents can only modify workspace while a human "
+                        "is watching. Headless mode can be explicitly delegated."
+                    ),
+                },
+            },
+        },
         "links": {
             "knowledge": "https://heysoup.co/knowledge",
-            "documentation": "https://heysoup.co/docs",
             "github": "https://github.com/soup-oss/souppy",
             "issues": "https://github.com/soup-oss/souppy/issues",
         },
