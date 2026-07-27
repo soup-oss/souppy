@@ -21,6 +21,7 @@ from .operations.patch import patch_path
 from .operations.search import glob_search, grep_search
 from .operations.vault import vault_path
 from .operations.audit import get_inertia
+from .operations.learn import get_learn_payload
 from .graph import get_nested_value
 
 
@@ -91,6 +92,11 @@ def main(argv: list[str] | None = None) -> None:
     p_boot.add_argument("--alias", default="main", help="Workspace alias (default: main)")
     p_boot.add_argument("--project-dir", help="Project directory (default: cwd)")
     p_boot.add_argument("--execute", action="store_true", help="Execute commands instead of printing them")
+
+    # learn
+    p_learn = sub.add_parser("learn", help="Return self-describing payload for agent onboarding")
+    p_learn.add_argument("db", help="Path to the SQLite database file")
+    p_learn.add_argument("--pretty", action="store_true", help="Pretty-print JSON output")
 
     # glob
     p_glob = sub.add_parser("glob", help="Search paths by glob pattern")
@@ -294,6 +300,18 @@ def _dispatch(args: argparse.Namespace) -> None:
             "data_keys": len(mem._data),
         }
         print(json.dumps(status, indent=2))
+
+    elif cmd == "learn":
+        conn = open_db(args.db)
+        uuid = _find_uuid(conn)
+        if not uuid:
+            print("Error: No workspace found.", file=sys.stderr)
+            sys.exit(1)
+        mem = load_memory(conn, uuid)
+        conn.close()
+        payload = get_learn_payload(mem, uuid, db_path=args.db)
+        indent = 2 if getattr(args, "pretty", False) else None
+        print(json.dumps(payload, indent=indent))
 
     elif cmd == "glob":
         conn = open_db(args.db)
