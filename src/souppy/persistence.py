@@ -230,6 +230,10 @@ def save_memory(conn: sqlite3.Connection, workspace_uuid: str, mem: MemoryData) 
                 (workspace_uuid, path, entry.ts, entry.cs, int(entry.ro), int(entry.vault), entry.we, entry.ve),
             )
 
+        # Append queued audit snapshots (append-only)
+        for snap in mem._pending_snapshots:
+            insert_snapshot(conn, workspace_uuid, snap)
+
         # Clear and rebuild chat
         conn.execute("DELETE FROM memory_chat WHERE uuid = ?", (workspace_uuid,))
         for key, msg in mem._chat.items():
@@ -264,6 +268,35 @@ def delete_workspace(conn: sqlite3.Connection, workspace_uuid: str) -> None:
     except Exception:
         conn.execute("ROLLBACK")
         raise
+
+
+def insert_snapshot(conn: sqlite3.Connection, workspace_uuid: str, snap: dict) -> None:
+    """Append an audit snapshot row for the workspace."""
+    conn.execute(
+        """INSERT INTO memory_snapshots
+           (id, uuid, path, data_json, diff_b64, chain_hash, intent, agent_name,
+            lines_added, lines_removed, ts, mutation_id, old_meta, new_meta,
+            tool_call, secret_version)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            snap["id"],
+            workspace_uuid,
+            snap["path"],
+            snap["data_json"],
+            snap["diff_b64"],
+            snap.get("chain_hash"),
+            snap["intent"],
+            snap.get("agent_name"),
+            snap["lines_added"],
+            snap["lines_removed"],
+            snap["ts"],
+            snap["mutation_id"],
+            snap.get("old_meta"),
+            snap.get("new_meta"),
+            snap.get("tool_call"),
+            snap.get("secret_version"),
+        ),
+    )
 
 
 def get_snapshots(conn: sqlite3.Connection, workspace_uuid: str, path: str | None = None, limit: int = 10) -> list[dict]:

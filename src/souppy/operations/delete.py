@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from ..core import MemoryData
 from ..core.common import validate_intent
-from ..graph import delete_nested_value
+from ..graph import delete_nested_value, get_nested_value
 from ..security import check_ancestor_vault
+from .audit import queue_snapshot
 
 
-def delete_path(memory: MemoryData, path: str, intent: str) -> dict:
+def delete_path(memory: MemoryData, path: str, intent: str, agent_name: str | None = None) -> dict:
     """Delete a path and all descendants. Returns {pulse, deleted_count}."""
     valid, error, feedback = validate_intent(intent)
     if not valid:
@@ -30,6 +31,21 @@ def delete_path(memory: MemoryData, path: str, intent: str) -> dict:
     # Increment pulse
     mutation_id = memory._ui.mutation_id + 1
     memory._ui.mutation_id = mutation_id
+
+    # Queue audit snapshots (previous state + intent) before removing
+    for t in targets:
+        entry = memory._journal[t]
+        queue_snapshot(
+            memory,
+            t,
+            get_nested_value(memory._data, t),
+            None,
+            intent,
+            mutation_id,
+            {"ts": entry.ts, "cs": entry.cs},
+            None,
+            agent_name,
+        )
 
     # Delete from data
     delete_nested_value(memory._data, path)

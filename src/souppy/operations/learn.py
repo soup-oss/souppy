@@ -70,6 +70,7 @@ def get_learn_payload(
         "agents": agents,
         "rules": [
             "Every write must include --intent explaining WHY you are making this change.",
+            "Reads return an envelope with 'inertia' — the last 3 mutations (with their intents) for the path and the workspace. Use it to see what happened recently without reading everything.",
             "Check pulse before writing. If pulse changed since your last read, re-read first.",
             "Read souppy agents to see who else is working in this workspace.",
             "Use chat for coordination with other agents. Use write for state.",
@@ -117,7 +118,7 @@ def get_learn_payload(
         },
         "commands": {
             "claim": "souppy claim {db} --name <name> --role <role>",
-            "read": "souppy read {db} <path>",
+            "read": "souppy read {db} <path> [--value-only]",
             "write": "souppy write {db} <path> <value> --intent <reason>",
             "delete": "souppy delete {db} <path> --intent <reason>",
             "chat_send": "souppy chat send {db} --from <name> --to <target> --msg <message>",
@@ -175,8 +176,9 @@ def get_learn_payload(
             "intent": {
                 "description": (
                     "A mandatory string (minimum 5 characters) explaining why "
-                    "a mutation is being made. Creates an audit trail of "
-                    "human-readable reasoning behind each change."
+                    "a mutation is being made. The intent is persisted as a snapshot "
+                    "in the audit trail and surfaced as inertia on every read — "
+                    "creating a human-readable record of reasoning behind each change."
                 ),
             },
         },

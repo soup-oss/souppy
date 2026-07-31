@@ -91,6 +91,7 @@ class MemoryData:
     _leases: dict[str, UILease] = field(default_factory=dict)
     _chat: dict[str, ChatMessage] = field(default_factory=dict)
     _cursors: dict[str, dict[str, int]] = field(default_factory=dict)
+    _pending_snapshots: list[dict] = field(default_factory=list)
 
 
 def empty_memory() -> MemoryData:

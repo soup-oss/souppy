@@ -6,6 +6,7 @@ from ..core import MemoryData
 from ..core.common import get_timestamp
 from ..core.common import validate_intent
 from ..graph import get_nested_value, scan_for_backlinks
+from .audit import queue_snapshot
 
 
 def vault_path(
@@ -15,6 +16,7 @@ def vault_path(
     vault: bool = True,
     we: str | None = None,
     ve: str | None = None,
+    agent_name: str | None = None,
 ) -> dict:
     """Vault or unvault a path. Only structure managers can do this."""
     valid, error, feedback = validate_intent(intent)
@@ -40,6 +42,21 @@ def vault_path(
     # Increment pulse
     mutation_id = memory._ui.mutation_id + 1
     memory._ui.mutation_id = mutation_id
+
+    # Queue audit snapshot (meta change; value unchanged)
+    old_meta = {"ts": entry.ts, "cs": entry.cs, "vault": entry.vault}
+    value = get_nested_value(memory._data, path)
+    queue_snapshot(
+        memory,
+        path,
+        value,
+        value,
+        intent,
+        mutation_id,
+        old_meta,
+        {"ts": get_timestamp(), "cs": entry.cs, "vault": vault},
+        agent_name,
+    )
 
     # Apply vault state
     entry.vault = vault

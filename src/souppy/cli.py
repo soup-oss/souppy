@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import __version__
 from .config import SoupConfig
-from .core.common import get_timestamp
+from .core.common import get_timestamp, to_canonical_json
 from .crypto import generate_uuid, compute_signature
 from .persistence import init_db, open_db, load_memory, save_memory, delete_workspace, get_snapshots
 from .operations.read import read_path
@@ -58,6 +58,9 @@ def main(argv: list[str] | None = None) -> None:
     p_read = sub.add_parser("read", help="Read a value from the workspace")
     p_read.add_argument("db", help="Path to the SQLite database file")
     p_read.add_argument("path", help="Path to read (use trailing / for directory)")
+    p_read.add_argument("--value-only", action="store_true", help="Print only the value (no envelope)")
+    p_read.add_argument("--offset", type=int, default=0, help="Character offset for string values")
+    p_read.add_argument("--limit", type=int, default=0, help="Max characters for string values (0 = all)")
 
     # delete
     p_delete = sub.add_parser("delete", help="Delete a path from the workspace")
@@ -210,10 +213,10 @@ def _dispatch(args: argparse.Namespace) -> None:
         conn = open_db(args.db)
         uuid = _find_uuid(conn)
         if not uuid:
-            print("Error: No workspace found.", file=sys.stderr)
+            print("Error: No workspace found. Run 'souppy init' first.", file=sys.stderr)
             sys.exit(1)
         mem = load_memory(conn, uuid)
-        result = write_path(mem, args.path, args.value, args.intent)
+        result = write_path(mem, args.path, args.value, args.intent, agent_name=_resolve_agent_name())
         if "error" in result:
             print(json.dumps(result, indent=2))
             sys.exit(1)
@@ -225,26 +228,44 @@ def _dispatch(args: argparse.Namespace) -> None:
         conn = open_db(args.db)
         uuid = _find_uuid(conn)
         if not uuid:
-            print("Error: No workspace found.", file=sys.stderr)
+            print("Error: No workspace found. Run 'souppy init' first.", file=sys.stderr)
             sys.exit(1)
         mem = load_memory(conn, uuid)
         result = read_path(mem, args.path)
+        inertia = get_inertia(conn, uuid, args.path)
         conn.close()
-        if result["value"] is None:
+        value = result["value"]
+        if value is None:
             print(f"Path not found: {args.path}")
-        elif isinstance(result["value"], dict):
-            print(json.dumps(result["value"], indent=2))
+            return
+        str_value = value if isinstance(value, str) else to_canonical_json(value)
+        offset = getattr(args, "offset", 0)
+        limit = getattr(args, "limit", 0)
+        sliced = str_value[offset : offset + limit] if limit > 0 else str_value
+        if getattr(args, "value_only", False):
+            if isinstance(value, dict):
+                print(json.dumps(value, indent=2))
+            else:
+                print(sliced)
         else:
-            print(result["value"])
+            print(json.dumps({
+                "path": args.path,
+                "value": sliced,
+                "totalLength": len(str_value),
+                "offset": offset,
+                "limit": limit if limit > 0 else None,
+                "inertia": inertia,
+                "pulse": result["pulse"],
+            }, indent=2))
 
     elif cmd == "delete":
         conn = open_db(args.db)
         uuid = _find_uuid(conn)
         if not uuid:
-            print("Error: No workspace found.", file=sys.stderr)
+            print("Error: No workspace found. Run 'souppy init' first.", file=sys.stderr)
             sys.exit(1)
         mem = load_memory(conn, uuid)
-        result = delete_path(mem, args.path, args.intent)
+        result = delete_path(mem, args.path, args.intent, agent_name=_resolve_agent_name())
         if "error" in result:
             print(json.dumps(result, indent=2))
             sys.exit(1)
@@ -352,7 +373,7 @@ def _dispatch(args: argparse.Namespace) -> None:
             print("Error: No workspace found.", file=sys.stderr)
             sys.exit(1)
         mem = load_memory(conn, uuid)
-        result = vault_path(mem, args.path, args.intent, vault=not args.unvault)
+        result = vault_path(mem, args.path, args.intent, vault=not args.unvault, agent_name=_resolve_agent_name())
         if "error" in result:
             print(json.dumps(result, indent=2))
             sys.exit(1)
@@ -454,6 +475,20 @@ def _find_uuid(conn) -> str | None:
     """Find the first workspace UUID in the database."""
     row = conn.execute("SELECT uuid FROM memory_data LIMIT 1").fetchone()
     return row["uuid"] if row else None
+
+
+def _resolve_agent_name() -> str | None:
+    """Resolve the claimed agent name from .soup.yaml for audit attribution."""
+    try:
+        config = SoupConfig()
+        if not config.exists():
+            return None
+        data = config.load()
+        soup = data.get("soups", {}).get("main")
+        name = soup.get("agent_name") if isinstance(soup, dict) else None
+        return name or None
+    except Exception:
+        return None
 
 
 if __name__ == "__main__":

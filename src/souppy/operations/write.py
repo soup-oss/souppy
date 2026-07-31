@@ -16,6 +16,7 @@ from ..graph import (
     generate_diff,
 )
 from ..security import check_ancestor_vault
+from .audit import queue_snapshot
 
 
 def write_path(
@@ -24,6 +25,7 @@ def write_path(
     value: Any,
     intent: str,
     checksum: str | None = None,
+    agent_name: str | None = None,
 ) -> dict:
     """Write a value to the workspace. Returns {pulse, journal_pruned}."""
     # Validate intent
@@ -59,6 +61,25 @@ def write_path(
         elif not isinstance(old_value, str) and to_canonical_json(old_value) == to_canonical_json(value):
             return {"pulse": memory._ui.mutation_id, "noop": True}
 
+    # Capture pre-write state for the audit trail
+    old_meta = {"ts": existing_entry.ts, "cs": existing_entry.cs} if existing_entry else None
+
+    # Detect parent-to-node conversions BEFORE mutating data so we can snapshot them
+    parts = [p for p in path.split("/") if p]
+    conversions: list[tuple[str, Any, dict | None]] = []
+    for i in range(1, len(parts)):
+        parent = "/".join(parts[:i])
+        if parent in memory._journal and parent != path:
+            prefix = parent + "/"
+            has_descendants = any(p.startswith(prefix) for p in memory._journal if p != parent)
+            if not has_descendants:
+                parent_entry = memory._journal[parent]
+                conversions.append((
+                    parent,
+                    get_nested_value(memory._data, parent),
+                    {"ts": parent_entry.ts, "cs": parent_entry.cs},
+                ))
+
     # Generate diff for snapshots
     old_str = json.dumps(old_value) if old_value is not None else ""
     new_str = json.dumps(value) if not isinstance(value, str) else value
@@ -75,10 +96,8 @@ def write_path(
     set_nested_value(memory._data, path, value)
 
     # Handle parent-to-node conversion: if writing a/b/c, remove a/b if it exists as a leaf
-    parts = [p for p in path.split("/") if p]
-    for i in range(1, len(parts)):
-        parent = "/".join(parts[:i])
-        if parent in memory._journal and parent != path:
+    for parent, _parent_value, _parent_meta in conversions:
+        if parent in memory._journal:
             # Check if parent has descendants
             prefix = parent + "/"
             has_descendants = any(p.startswith(prefix) for p in memory._journal if p != parent)
@@ -86,8 +105,26 @@ def write_path(
                 # Parent is a leaf being replaced by a child
                 del memory._journal[parent]
 
-    # Update journal
+    # Queue audit snapshots
     ts = get_timestamp()
+    new_meta = {"ts": ts, "cs": new_checksum}
+    queue_snapshot(
+        memory, path, old_value, value, intent, mutation_id, old_meta, new_meta, agent_name
+    )
+    for parent, parent_value, parent_meta in conversions:
+        queue_snapshot(
+            memory,
+            parent,
+            parent_value,
+            None,
+            f"Converted to node via write to child: {path}",
+            mutation_id,
+            parent_meta,
+            None,
+            agent_name,
+        )
+
+    # Update journal
     memory._journal[path] = JournalEntry(ts=ts, cs=new_checksum)
 
     # Prune journal if over limit
