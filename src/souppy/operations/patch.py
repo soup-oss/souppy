@@ -6,7 +6,7 @@ from ..core import MemoryData
 from .write import write_path
 
 
-def patch_path(memory: MemoryData, path: str, intent: str, diff: str) -> dict:
+def patch_path(memory: MemoryData, path: str, intent: str, diff: str, agent_name: str | None = None) -> dict:
     """Apply a line-level patch to a value. Diff format: '- old' / '+ new' lines."""
     from ..graph import get_nested_value
 
@@ -47,7 +47,7 @@ def patch_path(memory: MemoryData, path: str, intent: str, diff: str) -> dict:
                     # Replace this block
                     new_lines = current_lines[:i] + additions + current_lines[i + len(removals):]
                     new_value = "\n".join(new_lines)
-                    return write_path(memory, path, new_value, intent)
+                    return write_path(memory, path, new_value, intent, agent_name=agent_name)
 
         return {
             "error": "patch_not_found",
@@ -57,4 +57,4 @@ def patch_path(memory: MemoryData, path: str, intent: str, diff: str) -> dict:
 
     # Apply patch
     new_value = current[:idx] + "\n".join(additions) + current[idx + len(removal_text):]
-    return write_path(memory, path, new_value, intent)
+    return write_path(memory, path, new_value, intent, agent_name=agent_name)
